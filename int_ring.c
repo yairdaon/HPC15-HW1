@@ -27,23 +27,20 @@ int main(int argc, char *argv[]) {
 	int i;
  	int nsent = 0;
 	int ngot  = 0;
+	timestamp_type start, finish;
+    double time;
 
-    /*timestamp_type time1, time2;
-	get_timestamp(&time2);
-    diff = timestamp_diff_in_seconds(time1, time2);*/
+    
 
     MPI_Status status;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-
 	msgout = calloc((size_t) arrSize , sizeof(int));	
 	msgin  = calloc((size_t) arrSize , sizeof(int));
-	/*for(i = 0 ; i < size ; i++){
-		msgout[i] = rank;
-		msgin[i]  = rank;
-	}*/	
+
+	get_timestamp(&start);
 
     //Passing single integer as message around the ring
     for (i = 0; i < iterations; ++i) {
@@ -63,7 +60,8 @@ int main(int argc, char *argv[]) {
 			ngot++;
 			//printf("Rank = %d. Received %d array.\n", rank, ngot   );
 			
-			alter(msgin ,msgout, rank, size);
+			// alter message
+			//alter(msgin ,msgout, rank, size);
 
         }
     
@@ -75,8 +73,8 @@ int main(int argc, char *argv[]) {
 			ngot++;
 			//printf("Rank = %d. Received %d array.\n", rank, ngot   );
 
-			// alter message
-		    alter(msgin ,msgout, rank, size);
+
+		    //alter(msgin ,msgout, rank, size);
 
 			// send out
             MPI_Send(msgout, arrSize, MPI_INT, (rank+1)%size, 999, MPI_COMM_WORLD);
@@ -86,7 +84,14 @@ int main(int argc, char *argv[]) {
         }
     }	
 	
+	get_timestamp(&finish);
+    time = timestamp_diff_in_seconds(start, finish);
 	
+	if (rank == 0) {
+		printf("total time = %f \n", time);
+		double totMsg = (size-1)*iterations;
+		printf("Average communication time = %f \n " , time/totMsg);
+	}
 	
 	
 
