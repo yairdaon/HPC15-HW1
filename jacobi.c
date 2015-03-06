@@ -53,23 +53,24 @@ int main(int argc, char *argv[]) {
     unew  = (double *) calloc((size_t)N+2 , sizeof(double)  );
 
 	//start iteration
-	printf("STARTING ITERATION\n");
+	printf("Slave %d STARTING ITERATION\n" ,rank);
 	int k = 0;
-while ( k < T ) {
-	//special case: beginning
-	if (rank == 0){
-		for ( i = 2; i < N+1; i++ ) {        
-			unew[i] = 0.5*(u[i-1]+u[i+1]-h*h);   //update u
-		}
-		//send
-		MPI_Send(&u[N], 1, MPI_DOUBLE, rank+1, 998, MPI_COMM_WORLD);
-		//receive
-		MPI_Recv(&u[N+1], 1, MPI_DOUBLE, rank+1, 999, MPI_COMM_WORLD, &status);
-		unew[1] = 0;   //update u
-		unew[N+1] = 0.5*(u[N-1]+u[N+1]-h*h);   //update u
-		for ( i = 0; i < N+2; i++ ) {        
-		     u[i] = unew[i];        	       //update u
-	    }
+	while ( k < T ) {
+	
+		//special case: beginning
+		if (rank == 0){
+			for ( i = 2; i < N+1; i++ ) {        
+				unew[i] = 0.5*(u[i-1]+u[i+1]-h*h);   //update u
+			}
+			//send
+			MPI_Send(&u[N], 1, MPI_DOUBLE, rank+1, 998, MPI_COMM_WORLD);
+			//receive
+			MPI_Recv(&u[N+1], 1, MPI_DOUBLE, rank+1, 999, MPI_COMM_WORLD, &status);
+			unew[1] = 0;   //update u
+			unew[N+1] = 0.5*(u[N-1]+u[N+1]-h*h);   //update u
+			for ( i = 0; i < N+2; i++ ) {        
+				 u[i] = unew[i];        	       //update u
+			}
 	}
 
 
