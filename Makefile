@@ -17,14 +17,15 @@ run: first
 	mpirun -np 7 ./first 25 200000000
 	
 forrest: second
-<<<<<<< HEAD
-	mpirun -np 4 ./second  1
+	mpirun -np 4 ./second  1 20
+
+
+
 
 jacorun: jaco
 	mpirun -np 4 ./jaco 9 3
-=======
-	mpirun -np 4 ./second  1 20
->>>>>>> 1aa4ffd70328de233074778580d5aa2765bd0d4a
-	
+
+
+
 clean:
 	rm -rf $(EXECUTABLES)
