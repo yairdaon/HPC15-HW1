@@ -31,6 +31,7 @@ int main(int argc, char *argv[]) {
             printf("My rank = %d. I send thee %d\n", rank, msgout);
             MPI_Send(&msgout, 1, MPI_INT, 1, 999, MPI_COMM_WORLD);
             MPI_Recv(&msgin, 1, MPI_INT, size-1, 999, MPI_COMM_WORLD, &status);
+			printf("\n \n Processor 0 with final message %d. \n ",  N*size*(0 + size-1)/2);
         }
     
         //Other processors
@@ -40,7 +41,8 @@ int main(int argc, char *argv[]) {
             printf("My rank b %d. I send thee %d\n", rank, msgout);
             MPI_Send(&msgout, 1, MPI_INT, (rank+1)%size, 999, MPI_COMM_WORLD);
         }
-    }
+    }	
+	
 	
 	
 
