@@ -14,8 +14,6 @@ int main(int argc, char *argv[]) {
 	int T = atoi(argv[2]);   //get number of iterations
 
 
-	printf("Length of array: %i\n", M);
-	printf("Number of iterations: %i\n", T);
 
 
     int rank, size; //size is number of processors
@@ -39,6 +37,11 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+	if (rank == 0) {
+		printf("Length of array: %i\n", M);
+		printf("Number of iterations: %i\n", T);
+	}
+
 
 	printf("size: %i\n", size);
 	if (M % size != 0){
@@ -46,7 +49,7 @@ int main(int argc, char *argv[]) {
         return 0;
     } 
 	N = M/size;
-    u  = (double *) calloc((size_t)N+2 , sizeof(double)  );
+    u     = (double *) calloc((size_t)N+2 , sizeof(double)  );
     unew  = (double *) calloc((size_t)N+2 , sizeof(double)  );
 
 	//start iteration
