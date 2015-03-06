@@ -23,7 +23,7 @@ forrest: second
 
 
 jacorun: jaco
-	mpirun -np 4 ./jaco 9 3
+	mpirun -np 4 ./jaco 16 3
 
 
 

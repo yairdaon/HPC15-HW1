@@ -23,6 +23,7 @@ int main(int argc, char *argv[]) {
     const double L = 1.;       // The length of the sides of the box
     const double h = L/(N-1);  // h = Delta x = Delta y.  There are N+1 intervals between x=0 and x=L.
     double  *u, *unew;
+	int i;
 
     /*INITIALIZE
 	int i;
@@ -44,29 +45,76 @@ int main(int argc, char *argv[]) {
         return 0;
     } 
 	N = M/size;
-    u  = (double *) calloc((size_t)N , sizeof(double)  );
-    unew  = (double *) calloc((size_t)N , sizeof(double)  );
+    u  = (double *) calloc((size_t)N+2 , sizeof(double)  );
+    unew  = (double *) calloc((size_t)N+2 , sizeof(double)  );
 
 	//start iteration
-
+	printf("STARTING ITERATION\n");
+	int k = 0;
+while ( k < T ) {
 	//special case: beginning
+	if (rank == 0){
+		for ( i = 2; i < N+1; i++ ) {        
+			unew[i] = 0.5*(u[i-1]+u[i+1]-h*h);   //update u
+		}
+		//send
+		MPI_Send(&u[N], 1, MPI_DOUBLE, rank+1, 998, MPI_COMM_WORLD);
+		//receive
+		MPI_Recv(&u[N+1], 1, MPI_DOUBLE, rank+1, 999, MPI_COMM_WORLD, &status);
+		unew[1] = 0;   //update u
+		unew[N+1] = 0.5*(u[N-1]+u[N+1]-h*h);   //update u
+		for ( i = 0; i < N+2; i++ ) {        
+		     u[i] = unew[i];        	       //update u
+	    }
+	}
+
 
 	//special case: end
+	else if (rank == size-1){
+		for ( i = 2; i < N+1; i++ ) {        
+			unew[i] = 0.5*(u[i-1]+u[i+1]-h*h);   //update u
+		}
+		//send
+		MPI_Send(&u[1], 1, MPI_DOUBLE, rank-1, 999, MPI_COMM_WORLD);
+		//receive
+		MPI_Recv(&u[0], 1, MPI_DOUBLE, rank-1, 998, MPI_COMM_WORLD, &status);
+		unew[1] = 0.5*(u[0]+u[2]-h*h);   //update u
+		unew[N+1] = 0;   //update u
+		for ( i = 0; i < N+2; i++ ) {        
+		     u[i] = unew[i];        	       //update u
+	    }
+	}
+
 
 	//middle part of array
+	else{
 
-   for ( i = 1; i < N+1; i++ ) {        
-         unew[i] = 0.5*(u[i-1]+u[i+1]-h*h);   //update u
-     }
-   for ( i = 1; i < N+1; i++ ) {        
-         u[i] = unew[i];        	       //update u
-     }
+		for ( i = 2; i < N+1; i++ ) {        
+			unew[i] = 0.5*(u[i-1]+u[i+1]-h*h);   //update u
+		}
+		//send right
+		MPI_Send(&u[1], 1, MPI_DOUBLE, rank-1, 999, MPI_COMM_WORLD);
+		MPI_Send(&u[N], 1, MPI_DOUBLE, rank+1, 998, MPI_COMM_WORLD);
+		//receive
+		MPI_Recv(&u[0], 1, MPI_DOUBLE, rank-1, 998, MPI_COMM_WORLD, &status);
+		MPI_Recv(&u[N+1], 1, MPI_DOUBLE, rank+1, 999, MPI_COMM_WORLD, &status);
+		unew[1] = 0.5*(u[0]+u[2]-h*h);   //update u
+		unew[N+1] = 0.5*(u[N-1]+u[N+1]-h*h);   //update u
+		for ( i = 0; i < N+2; i++ ) {        
+		     u[i] = unew[i];        	       //update u
+	    }
+	}
+printf("Finished iteration #: %i\n", k);
+k++;
+}
 	
 	//end iteration
 
     MPI_Finalize();
+
+	printf("HAPPY END\n");
 	// free everything
-    free(v);
+    free(unew);
     free(u);
     return 0;
 }
