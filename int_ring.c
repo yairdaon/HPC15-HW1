@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
     msgin = 0;
 	int i;
 
-
+//FInally works!!
 
     MPI_Status status;
     MPI_Init(&argc, &argv);
