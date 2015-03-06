@@ -8,13 +8,15 @@ int main(int argc, char *argv[]) {
         printf("Incorrect number of args");
         return 0;
     }
-
+	int n = 20;
     int N = atoi(argv[1]);
-    int rank, msgout, msgin, size;
-    msgin = 0;
+    int rank, size;
+	int * msgout , msgin;
 	int i;
+    timestamp_type time1, time2;
 
-
+	get_timestamp(&time2);
+    diff = timestamp_diff_in_seconds(time1, time2);
 
     MPI_Status status;
     MPI_Init(&argc, &argv);
@@ -27,11 +29,18 @@ int main(int argc, char *argv[]) {
 
         //Handle processor 0 separately for correct start and end
         if (0 == rank) {
-            msgout = msgin + rank;
-            printf("My rank = %d. I send thee %d\n", rank, msgout);
-            MPI_Send(&msgout, 1, MPI_INT, 1, 999, MPI_COMM_WORLD);
-            MPI_Recv(&msgin, 1, MPI_INT, size-1, 999, MPI_COMM_WORLD, &status);
-			printf("\n \n Processor 0 with final message %d. \n ",  N*size*(0 + size-1)/2);
+
+			//create the message
+			msgout = calloc((size_t) n , sizeof(int));
+	
+			// 
+            printf("Rank = %d.", rank);
+			printf(" I sent first array.\n");
+
+            MPI_Send(msgout, 1, MPI_INT, 1, 999, MPI_COMM_WORLD);
+            MPI_Recv(msgin, 1, MPI_INT, size-1, 999, MPI_COMM_WORLD, &status);
+            printf("Rank = %d.", rank);
+
         }
     
         //Other processors
