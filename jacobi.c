@@ -34,6 +34,7 @@ int main(int argc, char *argv[]) {
 	*/
 
     MPI_Status status;
+    //MPI_Request request;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -110,9 +111,19 @@ k++;
 	
 	//end iteration
 
-    MPI_Finalize();
+    printf("HAPPY END\n");
+	//MPI_Waitall(&request, &status);
+	printf("This is the result:\n");
+	for ( i = 0; i < size; i++ ){
+		if (rank == i){
+	    printf("I am processor %i and this is my result:\n", i);
+		for ( k = 1; k < N+2; k++ ){
+			printf("%3.2f\n", u[k]);
+		}
+		}
+	}
 
-	printf("HAPPY END\n");
+	MPI_Finalize();
 	// free everything
     free(unew);
     free(u);
