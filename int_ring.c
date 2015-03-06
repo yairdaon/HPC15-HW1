@@ -13,6 +13,7 @@ int main(int argc, char *argv[]) {
     int rank, size;
 	int * msgout , msgin;
 	int i;
+
     timestamp_type time1, time2;
 
 	get_timestamp(&time2);
