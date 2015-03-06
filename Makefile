@@ -14,7 +14,7 @@ jaco: jacobi.c
 	$(COMPILER) $(FLAGS) jacobi.c -o jaco
 
 run: first
-	mpirun -np 7 ./first 25 200000000
+	mpirun -np 7 ./first 25 20000000
 	
 forrest: second
 	mpirun -np 4 ./second  1 20
