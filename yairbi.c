@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
 	// because 0 and n are boundary points
 	int n = (Np1)/size + 2;
 
+	// allocate memory for everything
     u     = (double *) calloc((size_t)n , sizeof(double)  );
     unew  = (double *) calloc((size_t)n , sizeof(double)  );
     f     = (double *) calloc((size_t)n , sizeof(double)  );
@@ -70,7 +71,7 @@ int main(int argc, char *argv[]) {
 			MPI_Send(&u[n-2], 1, MPI_DOUBLE, 1, 998, MPI_COMM_WORLD);
 
 			//receive rightmost value of rank 1 (this processor doesn't "own"
-			// u[n-1]
+			// u[n-1])
 			MPI_Recv(&u[n-1], 1, MPI_DOUBLE, 1, 999, MPI_COMM_WORLD, &status);
 
 			// perform one jacobi iteration for the left chunk
@@ -124,22 +125,18 @@ int main(int argc, char *argv[]) {
 		}
 
 		// declare end of iteration
-		printf("Finished iteration #: %i\n", k);
+		//printf("Finished iteration #: %i\n", k);
 	}
 	
 	//end iterations
 
-    //printf("HAPPY END\n");
+
 	//MPI_Waitall(&request, &status);
-	printf("This is the result:\n");
-	/*for ( i = 0; i < size; i++ ){
-		if (rank == i){
-	    printf("I am processor %i and this is my result:\n", i);
-		for ( k = 1; k < Np1+1; k++ ){
-			printf("%3.2f\n", u[k]);
-		}
-		}
-	}*/
+	
+    printf("I am processor %d and this is my result:\n", rank);
+	for ( k = 1; k < n-2; k++ ){
+		printf("%3.2f\n", u[k]);
+	}
 
 	MPI_Finalize();
 	
@@ -210,6 +207,9 @@ void leftJacobi( double * f, double * u, double * v, int n, double h){
 	for( i = 2; i < n-1; i++){	
 		v[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
 	}	
+	
+	// make sure left boundary condition holds
+	v[1] = 0.0;
 }  
 
 
@@ -237,4 +237,7 @@ void rightJacobi( double * f, double * u, double * v, int n, double h){
 	for( i = 2; i < n-2; i++){	
 		v[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
 	}	  
+
+	// make sure right boundary condition holds
+	v[n-1] = 0.0;
 }

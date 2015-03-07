@@ -23,7 +23,7 @@ jaco: yairbi.c
 	$(COMPILER) $(FLAGS) yairbi.c -o jaco
 
 jacorun: jaco
-	mpirun -np 4 ./jaco 16 3
+	mpirun -np 4 ./jaco 1024 500
 
 
 
