@@ -29,3 +29,4 @@ jacorun: jaco
 
 clean:
 	rm -rf $(EXECUTABLES)
+	rm -vf *~
