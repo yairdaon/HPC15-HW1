@@ -10,17 +10,17 @@ first: int_ring.c
 second: int_ring.c
 	$(COMPILER) $(FLAGS) $^ -o second
 
-jaco: jacobi.c
-	$(COMPILER) $(FLAGS) jacobi.c -o jaco
-
 run: first
-	mpirun -np 7 ./first 25 20000000
+	mpirun -np 7 ./first 25 20000
 	
 forrest: second
 	mpirun -np 4 ./second  1 20
 
 
 
+# problem 2
+jaco: yairbi.c
+	$(COMPILER) $(FLAGS) yairbi.c -o jaco
 
 jacorun: jaco
 	mpirun -np 4 ./jaco 16 3

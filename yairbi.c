@@ -1,276 +1,240 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include <time.h>
+#include <mpi.h>
+//#include "util.h"
 
-// declare function
-void jacobiIteration(double *f, double * u, double *v, int n);
+#include <math.h>        
 
-double resNorm(double * u , double * f , int n);
+void midJacobi( double * f, double * u, double * v, int n, double h);
+void rightJacobi( double * f, double * u, double * v, int n, double h);
+void leftJacobi( double * f, double * u, double * v, int n, double h);
+void swap(double * u, double * v, int n);
 
-int main (int argc, char **argv)
-{
+int main(int argc, char *argv[]) {
+	if (3 != argc){
+        printf("Incorrect number of args");
+        return 0;
+    }  
+    int Np1 = atoi(argv[1]); // the input length corresponds to N+1 so we get N
+	int T = atoi(argv[2]);    // number of iterations
 
 
 
 
-	// Arguiments: gridsize and number of iter
-	if (argc != 3) {
-		fprintf(stderr, "Wrong nubmer of arguments. Aborting.\n");
-    	abort();
+
+    int rank, size; 			//size is number of processors
+    const double L = 1.;       	// The length of the sides of the box
+    const double h = L/(Np1); 	// h = Delta x = Delta y.  There are N+1 intervals between x=0 and x=L.
+    double  *u, *unew, *f;
+	int i,k;
+
+    MPI_Status status;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+	if (rank == 0) {
+		printf("Length of array: %i\n", Np1);
+		printf("Number of iterations: %i\n", T);
+	}
+
+
+	//printf("size: %i\n", size);
+	if (Np1 % size != 0){
+        printf("Can't distribute points uniformly between processors. Abort.\n");
+        return 0;
+    } 
+
+	// size of array each processor holds. It "owns" only 1 through n-2 of them
+	// because 0 and n are boundary points
+	int n = (Np1)/size + 2;
+
+    u     = (double *) calloc((size_t)n , sizeof(double)  );
+    unew  = (double *) calloc((size_t)n , sizeof(double)  );
+    f     = (double *) calloc((size_t)n , sizeof(double)  );
+	
+	// initialize f to ones	( change here if we solve for different f)
+	for( i = 0; i < n ; i++ ) {
+		f[i] = 1.0;
 	}
 	
+	//start iteration
+	//printf("Processor %d STARTING ITERATION\n" ,rank);
+
+	for( k = 0; k < T; k++ ) {
 	
-  /*if (argc == 2) { 
+		//special case: beginning
+		if (rank == 0){
 
-    int n1 = atoi(argv[1]);
-    int gs1, jac1, t;
-    clock_t start, diff;
-    printf("\n\n\n");
-    printf("Preparing to run. n = %d. \n", n1);
+			//send rightmost value processor owns (i.e. u[n-2]) to rank 1
+			MPI_Send(&u[n-2], 1, MPI_DOUBLE, 1, 998, MPI_COMM_WORLD);
 
-    start = clock();
-    gs1  = fullGS(n1);
-    diff = clock() - start;
-    t = (double)diff / CLOCKS_PER_SEC;
-    printf("Gauss Seidel. n = %d used. %d iterations. Elapsed time =  %d seconds.\n", n1, gs1, t);
+			//receive rightmost value of rank 1 (this processor doesn't "own"
+			// u[n-1]
+			MPI_Recv(&u[n-1], 1, MPI_DOUBLE, 1, 999, MPI_COMM_WORLD, &status);
+
+			// perform one jacobi iteration for the left chunk
+			leftJacobi(f, u, unew, n, h);
+
+			// copy u^{k+1} into u^k
+			swap(u , unew, n);	
 
 
+		}
 
-    start = clock();
-    jac1  = fullJacobi(n1);
-    diff = clock() - start;
-    t = (double)diff / CLOCKS_PER_SEC;
-    printf("Jacobi.  n = %d. used %d iterations. Elapsed time =  %d seconds.\n", n1, jac1, t);
 
-  } else if ( argc == 3) {
+		//special case: rightmost 
+		else if (rank == size-1){
+		
+			//send left most value this processor "owns" (i.e. u[1]) to its left neighbour
+			MPI_Send(&u[1], 1, MPI_DOUBLE, rank-1, 999, MPI_COMM_WORLD);
+		
+			//receive into leftmost value this processor doesn't "own" (namely, u[0])
+			MPI_Recv(&u[0], 1, MPI_DOUBLE, rank-1, 998, MPI_COMM_WORLD, &status);
 
-    int n1 = atoi(argv[1]);
-    int n2 = atoi(argv[2]);
+			// perform one jacobi iteration for the right chunk
+			rightJacobi(f, u, unew, n, h);
 
-    printf("\n\n\n");
-    printf("Preparing to run. n1 = %d, n2 = %d. \n", n1, n2);
+			// copy u^{k+1} into u^k
+			swap(u , unew, n);
+		}
 
-    int gs1  = fullGS(n1);
-    printf("GS  n = %d used %d iterations\n", n1, gs1  );
 
-    int jac1 = fullJacobi(n1);
-    printf("Jac n = %d used %d iterations\n", n1, jac1 );
+		//middle part of array
+		else{
+		
+			//send owned value to left neighbour 
+			MPI_Send(&u[1], 1, MPI_DOUBLE, rank-1, 999, MPI_COMM_WORLD);
 
-    int gs2  = fullGS(n2);
-    printf("GS  n = %d used %d iterations\n", n2, gs2  );
+			// send owned value to right neighbour
+			MPI_Send(&u[n-2], 1, MPI_DOUBLE, rank+1, 998, MPI_COMM_WORLD);
+		
+			// receive into unowned left point (which is u[0])
+			MPI_Recv(&u[0], 1, MPI_DOUBLE, rank-1, 998, MPI_COMM_WORLD, &status);
 
-    int jac2 = fullJacobi(n2);
-    printf("GS  n = %d used %d iterations\n", n2, jac2 );
-  } else {
-    fprintf(stderr, "Wrong nubmer of arguments. Aborting.\n");
-    abort();*/
-  }
+			// receive into unowned right point (which is u[n-1])
+			MPI_Recv(&u[n-1], 1, MPI_DOUBLE, rank+1, 999, MPI_COMM_WORLD, &status);
+	
 
-  return 0;
+			// do a jacobi iteration on our owned array
+			midJacobi( f, u, unew, n, h);
+
+			// copy u^{k+1} into u^k
+			swap(u , unew, n);	
+		}
+
+		// declare end of iteration
+		printf("Finished iteration #: %i\n", k);
+	}
+	
+	//end iterations
+
+    //printf("HAPPY END\n");
+	//MPI_Waitall(&request, &status);
+	printf("This is the result:\n");
+	/*for ( i = 0; i < size; i++ ){
+		if (rank == i){
+	    printf("I am processor %i and this is my result:\n", i);
+		for ( k = 1; k < Np1+1; k++ ){
+			printf("%3.2f\n", u[k]);
+		}
+		}
+	}*/
+
+	MPI_Finalize();
+	
+	// free everything
+    free(unew);
+    free(u);
+    return 0;
 }
-  
-int fullJacobi(int n){
-
-  printf("\n\n\n");
 
 
-
-  // INITIALIZATION STEPS!!!!
-
-
-  // getting arguments
-  int jit  = 0;
-  int jump = 1000*n;
-
-  double  *u, *v ,*f;
-  int i,j;
-  double hneg2 = (n+1) * (n+1);
-  double initial;
-  double factor = 1e6;
-  double jacResNorm;
-
-  u  = (double *) malloc(sizeof(double) * n  );
-  v  = (double *) malloc(sizeof(double) * n  );
-  f  = (double *) malloc(sizeof(double) * n  );
-
-
-
-  // set values and stuff
-  for( i = 0 ; i < n ; i++) {
-    f[i] = 1.0;
-    u[i] = 0.0;
-  }
-
-    
-  initial = resNorm(u, f, n);
-  jacResNorm = initial;
-
-
-  // FINISHED INITIALIZATION - NOW THE NUMERICS!!!
-
-
-  // do jacobi iterations, two per round
-  while( jacResNorm > initial/factor ) {
-   
-    jacobiIteration( f, u, v, n);
-    jit++;
-    jacResNorm = resNorm(v, f, n);
-    if( jit % jump == 0 )
-      printf("Jacobi: ||Au^(%d) - f|| = %f \n", jit, jacResNorm );
-
-    jacobiIteration(f, v, u, n); 
-    jit++;
-    jacResNorm = resNorm(u, f, n);
-    
-    /*if( jit % jump == 0 )
-      printf("Jacobi: ||Au^(%d) - f|| = %f \n", jit, jacResNorm );*/
- 
-  }
-
- 
-
-
-  // print results
-  printf("Results: \n");
-  printf("Jacobi: %d iterations,  ||Au - f|| = %f \n",  jit, jacResNorm );
-
-  // free everything
-  free(f);
-  free(v);
-  free(u);
-  return jit;
+void swap(double * u, double * v, int n) {
+	/*
+	* copy v into u
+	*/
+	
+	int i;
+	for ( i = 0; i < n; i++ ) {        
+				 u[i] = v[i]; 
+	}
 
 }
 
 
 
-int fullGS(int n) {
- 
-  printf("\n\n\n");
+void midJacobi( double * f, double * u, double * v, int n, double h){
+	/*
+	perform Jacobi iteration on for a non endpoint processor
+	the current processor runs a jacobi and has no view of the boundary
+	
+	current values are at u, next values are written to v.
+	 
+	f is an nx1 vector,
+	u, v are also nx1
+	every processor "owns" his points, which are 1 to n-2
+	*/
 
+	//iteration indices
+	int i;
+	double h2 = h*h;
 
-  // setting arguments
-  int gsit = 0;
-  int jump = 1000*n;
-
-  double  *f, *gs;
-  int i,j;
-  double hneg2 = (n+1) * (n+1) ;
-  double initial;
-  double factor = 1e6;
-  double gsResNorm;
-
-  f  = (double *) malloc(sizeof(double) * n  );
-  gs = (double *) malloc(sizeof(double) * n  );
-
-
-
-  // set values and stuff
-  for( i = 0 ; i < n ; i++) {
-    f[i] = 1.0;
-    gs[i] = 0.0;
-  }
-
-  
-  initial = resNorm(gs, f, n);
-  gsResNorm  = initial;
-
-
-  // do gauss Seidel iterations, one per round
-  while( gsResNorm > initial/factor ) {
-   
-    gsIteration( f, gs, n);
-    gsit++;
-    gsResNorm = resNorm(gs , f, n);
-    /*if( gsit % jump  == 0) 
-      printf("Gauss Seidel: ||Au^(%d) - f|| = %f \n", gsit, gsResNorm );*/
-  }
-
-
-
-  // print results
-  printf("Results: \n");
-  printf("Gauss Seidel: %d iterations, ||Au - f|| = %f \n", gsit, gsResNorm );
-
-  // free everything
-  free(gs);
-  free(f);
-  return gsit;
-
+	// every processor only owns indices 0 through n-2 so these
+	for( i = 1; i < n-1; i++){	
+		v[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
+	}	  
 }
 
 
+void leftJacobi( double * f, double * u, double * v, int n, double h){
+	/*
+	perform Jacobi iteration on for a left endpoint processor
+	the current processor runs a jacobi and sees only the left boundary
+	the current value is at u, the next value is written
+	to v. 
+	f is an nx1 vector,
+	u, v are also nx1
+	this processor "owns" his points, which are 1 to n-2. For this processor
+	the point u[1] is the boundary point so it is never changed.
+	*/
+
+	//iteration indices
+	int i;
+	double h2 = h*h;
+
+	// every processor only owns indices 1 through n-1 so these are the only 
+	// indices that change. For this processor the point u[1] is the left 
+	// boundary point so it is never changed (it is not really "owned" 
+	// by this processor.
+	for( i = 2; i < n-1; i++){	
+		v[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
+	}	
+}  
 
 
-void gsIteration( double * f, double * u ,  int n){
-  /*
-    f is an nx1 vector,
-    u is an nx1 vector.
-  */
 
+void rightJacobi( double * f, double * u, double * v, int n, double h){
+	/*
+	perform Jacobi iteration on for a right endpoint processor
+	the current processor runs a jacobi and sees only the right boundary
+	the current value is at u, the next value is written
+	to v. 
+	f is an nx1 vector,
+	u, v are also nx1
+	this processor "owns" his points, which are 1 to n-2. For this processor
+	the point u[n-1] is the right boundary point so it is never changed.
+	*/
 
-  //iteration indices
-  int i,j;
+	//iteration indices
+	int i;
+	double h2 = h*h;
 
-  int hneg2 = (n+1) * (n+1);
- 
-  u[0] = (f[0] + hneg2*u[1]) / (2.0*hneg2); 
-
-  // the iteration!!!
-  for( i = 1; i < n-1; i++){
-    u[i] = (f[i] + hneg2*u[i+1] + hneg2*u[i-1]) / (2.0*hneg2);    
-  }
-  
-  u[n-1] = (f[n-1] + hneg2*u[n-2]) / (2.0*hneg2);
-  
-}
-
-
-
-
-void jacobiIteration( double * f, double * u, double * v, int n){
-  /*
-    the current value is at u, the next value is written
-    to v. 
-    f is an nx1 vector,
-    u, v are also nx1
-  */
-
-  //iteration indices
-  int i,j;
-  int hneg2 = (n+1)*(n+1);
- 
-
-  v[0] = (f[0] + hneg2*u[1]) / (2.0*hneg2);
-
-  // the iteration!!!
-  for( i = 1; i < n-1; i++){
-    
-    v[i] = (f[i] + u[i-1]*hneg2 + u[i+1]*hneg2) / (2.0*hneg2);
-  }
-  v[n-1] = (f[n-1] + hneg2*u[n-2]) / (2.0*hneg2);
- 
-  
-}
-
-double resNorm(double * u, double * f,  int n) {
-
-  int i;
-  double norm, tmp;
-  int hneg2 = (n+1) * (n+1);
-
-  tmp  = f[0] - 2.0*hneg2*u[0] + hneg2*u[1];
-  norm = tmp*tmp;
-
-  for(i = 1 ; i < n-1 ; i++){
-
-    tmp = f[i] - 2.0*hneg2*u[i] + hneg2*u[i-1] + hneg2*u[i+1];
-    norm += tmp*tmp;
-  }
-
-  tmp = f[n-1] -2.0*hneg2*u[i] + hneg2*u[n-2];
-  norm += tmp*tmp;
- 
-  return sqrt(norm);
+	// every processor only owns indices 1 through n-1 so these are the only 
+	// indices that change (at least, potentially). For this processor 
+	// the point u[n-1] is the right boundary point so it is never
+	//  changed (it is not really "owned"  by this processor.
+	for( i = 2; i < n-2; i++){	
+		v[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
+	}	  
 }
