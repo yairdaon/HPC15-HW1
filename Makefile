@@ -19,13 +19,17 @@ forrest: second
 
 
 # problem 2
-jaco: yairbi.c
-	$(COMPILER) $(FLAGS) yairbi.c -o jaco
+yair: yairbi.c
+	$(COMPILER) $(FLAGS) yairbi.c -o yair
 
-jacorun: jaco
-	mpirun -np 4 ./jaco 1024 500
+yairrun: yair
+	mpirun -np 10 ./yair 250 5000
 
+irena: jacobi.c
+	$(COMPILER) $(FLAGS) jacobi.c -o irena
 
+irenarun: irena	
+	mpirun -np 4 ./irena 1024 500
 
 clean:
 	rm -rf $(EXECUTABLES)

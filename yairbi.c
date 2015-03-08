@@ -11,28 +11,32 @@ void leftJacobi( double * f, double * u, double * v, int n, double h);
 void swap(double * u, double * v, int n);
 
 int main(int argc, char *argv[]) {
+	
+	// make sure we got all the arguments we need
 	if (3 != argc){
         printf("Incorrect number of args");
         return 0;
     }  
-    int Np1 = atoi(argv[1]); // the input length corresponds to N+1 so we get N
-	int T = atoi(argv[2]);    // number of iterations
+    int Np1 = atoi(argv[1]);	// the input length corresponds to N+1 so we get N
+	int T = atoi(argv[2]);		// number of iterations
 
 
 
 
 
-    int rank, size; 			//size is number of processors
+    int rank, size; 			// size is number of processors
     const double L = 1.;       	// The length of the sides of the box
-    const double h = L/(Np1); 	// h = Delta x = Delta y.  There are N+1 intervals between x=0 and x=L.
+    const double h = L/(Np1); 	// There are N+1 intervals between x=0 and x=L.
     double  *u, *unew, *f;
 	int i,k;
 
+	// initializing MPI. Nothing interesting here
     MPI_Status status;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+	// if you are the zeroh processor, print something 
 	if (rank == 0) {
 		printf("Length of array: %i\n", Np1);
 		printf("Number of iterations: %i\n", T);
@@ -46,7 +50,7 @@ int main(int argc, char *argv[]) {
     } 
 
 	// size of array each processor holds. It "owns" only 1 through n-2 of them
-	// because 0 and n are boundary points
+	// because 0 and n-1 are boundary points
 	int n = (Np1)/size + 2;
 
 	// allocate memory for everything
@@ -68,7 +72,7 @@ int main(int argc, char *argv[]) {
 		if (rank == 0){
 
 			//send rightmost value processor owns (i.e. u[n-2]) to rank 1
-			MPI_Send(&u[n-2], 1, MPI_DOUBLE, 1, 998, MPI_COMM_WORLD);
+			MPI_Send(&u[n-2], 1, MPI_DOUBLE, 1, 999, MPI_COMM_WORLD);
 
 			//receive rightmost value of rank 1 (this processor doesn't "own"
 			// u[n-1])
@@ -91,7 +95,7 @@ int main(int argc, char *argv[]) {
 			MPI_Send(&u[1], 1, MPI_DOUBLE, rank-1, 999, MPI_COMM_WORLD);
 		
 			//receive into leftmost value this processor doesn't "own" (namely, u[0])
-			MPI_Recv(&u[0], 1, MPI_DOUBLE, rank-1, 998, MPI_COMM_WORLD, &status);
+			MPI_Recv(&u[0], 1, MPI_DOUBLE, rank-1, 999, MPI_COMM_WORLD, &status);
 
 			// perform one jacobi iteration for the right chunk
 			rightJacobi(f, u, unew, n, h);
@@ -108,10 +112,10 @@ int main(int argc, char *argv[]) {
 			MPI_Send(&u[1], 1, MPI_DOUBLE, rank-1, 999, MPI_COMM_WORLD);
 
 			// send owned value to right neighbour
-			MPI_Send(&u[n-2], 1, MPI_DOUBLE, rank+1, 998, MPI_COMM_WORLD);
+			MPI_Send(&u[n-2], 1, MPI_DOUBLE, rank+1, 999, MPI_COMM_WORLD);
 		
 			// receive into unowned left point (which is u[0])
-			MPI_Recv(&u[0], 1, MPI_DOUBLE, rank-1, 998, MPI_COMM_WORLD, &status);
+			MPI_Recv(&u[0], 1, MPI_DOUBLE, rank-1, 999, MPI_COMM_WORLD, &status);
 
 			// receive into unowned right point (which is u[n-1])
 			MPI_Recv(&u[n-1], 1, MPI_DOUBLE, rank+1, 999, MPI_COMM_WORLD, &status);
@@ -128,14 +132,17 @@ int main(int argc, char *argv[]) {
 		//printf("Finished iteration #: %i\n", k);
 	}
 	
-	//end iterations
+
+
+
 
 
 	//MPI_Waitall(&request, &status);
-	
-    printf("I am processor %d and this is my result:\n", rank);
-	for ( k = 1; k < n-2; k++ ){
-		printf("%3.2f\n", u[k]);
+	if (rank == size/2) {
+    	printf("I am processor %d and this is my result:\n", rank);
+		for ( k = 1; k < n-1; k++ ){
+			printf("%3.9f\n", u[k]);
+		}
 	}
 
 	MPI_Finalize();
@@ -143,25 +150,26 @@ int main(int argc, char *argv[]) {
 	// free everything
     free(unew);
     free(u);
+    free(f);
     return 0;
 }
 
 
-void swap(double * u, double * v, int n) {
+void swap(double * u, double * unew, int n) {
 	/*
-	* copy v into u
+	* copy unew into u
 	*/
 	
 	int i;
 	for ( i = 0; i < n; i++ ) {        
-				 u[i] = v[i]; 
+				 u[i] = unew[i]; 
 	}
 
 }
 
 
 
-void midJacobi( double * f, double * u, double * v, int n, double h){
+void midJacobi( double * f, double * u, double * unew, int n, double h){
 	/*
 	perform Jacobi iteration on for a non endpoint processor
 	the current processor runs a jacobi and has no view of the boundary
@@ -177,14 +185,15 @@ void midJacobi( double * f, double * u, double * v, int n, double h){
 	int i;
 	double h2 = h*h;
 
-	// every processor only owns indices 0 through n-2 so these
+	// every processor only "owns" indices 1 through n-2 so these
+	// are the indices that change
 	for( i = 1; i < n-1; i++){	
-		v[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
+		unew[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
 	}	  
 }
 
 
-void leftJacobi( double * f, double * u, double * v, int n, double h){
+void leftJacobi( double * f, double * u, double * unew, int n, double h){
 	/*
 	perform Jacobi iteration on for a left endpoint processor
 	the current processor runs a jacobi and sees only the left boundary
@@ -201,20 +210,22 @@ void leftJacobi( double * f, double * u, double * v, int n, double h){
 	double h2 = h*h;
 
 	// every processor only owns indices 1 through n-1 so these are the only 
-	// indices that change. For this processor the point u[1] is the left 
-	// boundary point so it is never changed (it is not really "owned" 
-	// by this processor.
+	// indices that change (at least, potentially). For this processor the
+	// point u[1] is the left boundary point so it is never changed 
+	// (it is not really "owned" by this processor).
+	
 	for( i = 2; i < n-1; i++){	
-		v[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
+		unew[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
 	}	
 	
-	// make sure left boundary condition holds
-	v[1] = 0.0;
+	// make sure left boundary condition holds. In this case, the index
+	// zero is junk (it corresponds to -h, which is outside our boundary).
+	unew[1] = 0.0;
 }  
 
 
 
-void rightJacobi( double * f, double * u, double * v, int n, double h){
+void rightJacobi( double * f, double * u, double * unew, int n, double h){
 	/*
 	perform Jacobi iteration on for a right endpoint processor
 	the current processor runs a jacobi and sees only the right boundary
@@ -230,14 +241,14 @@ void rightJacobi( double * f, double * u, double * v, int n, double h){
 	int i;
 	double h2 = h*h;
 
-	// every processor only owns indices 1 through n-1 so these are the only 
+	// every processor only owns indices 1 through n-2 so these are the only 
 	// indices that change (at least, potentially). For this processor 
-	// the point u[n-1] is the right boundary point so it is never
-	//  changed (it is not really "owned"  by this processor.
-	for( i = 2; i < n-2; i++){	
-		v[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
+	// the point u[n-2] is the right boundary point so it is never
+	//  changed (it is not really "owned"  by this processor).
+	for( i = 1; i < n-2; i++){	
+		unew[i] = (f[i]*h2 + u[i-1] + u[i+1]) / 2.0;
 	}	  
 
 	// make sure right boundary condition holds
-	v[n-1] = 0.0;
+	unew[n-2] = 0.0;
 }

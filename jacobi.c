@@ -104,7 +104,7 @@ while ( k < T ) {
 		     u[i] = unew[i];        	       //update u
 	    }
 	}
-printf("Finished iteration #: %i\n", k);
+//printf("Finished iteration #: %i\n", k);
 k++;
 }
 	
