@@ -1,0 +1,17 @@
+Problem 1
+---------
+I wasn't able to use other CIMS machines, even though I followed the
+instructions. Inside my machine, communication in the 2MB array problem is 
+33,821,475 bytes/sec. When sending a single integer, I got 888.928699 bytes/sec.
+It seems slower but here the overhead of runnig the OS etc. is much more 
+significant.
+
+Problem 2
+---------
+I did not observe strong scalability. My machine has four cores so using any 
+number of processors bigger than four doesn't make sense. Going from two to
+four processors did not improve runtime at all (actually, the run with 
+four processors was a bit slower).
+Parallelizling Gauss Seidel will bee much harder because every update any 
+processor makes will immediately affect other processors. This is in sharp 
+contrast to updates at the end of each iteration with Jacobi's method.
