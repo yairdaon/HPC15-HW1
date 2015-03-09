@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
-//#include "util.h"
-
+#include "util.h"
 #include <math.h>        
 
 void midJacobi( double * f, double * u, double * v, int n, double h);
@@ -29,6 +28,8 @@ int main(int argc, char *argv[]) {
     const double h = L/(Np1); 	// There are N+1 intervals between x=0 and x=L.
     double  *u, *unew, *f;
 	int i,k;
+	timestamp_type start, finish;
+    double time;
 
 	// initializing MPI. Nothing interesting here
     MPI_Status status;
@@ -62,7 +63,11 @@ int main(int argc, char *argv[]) {
 	for( i = 0; i < n ; i++ ) {
 		f[i] = 1.0;
 	}
-	
+
+
+	// start timing communication			
+	get_timestamp(&start);
+
 	//start iteration
 	//printf("Processor %d STARTING ITERATION\n" ,rank);
 
@@ -133,17 +138,30 @@ int main(int argc, char *argv[]) {
 	}
 	
 
+	// Total  time
+	get_timestamp(&finish);
+    time = timestamp_diff_in_seconds(start, finish);
+	if (rank == 0) {
+		printf("Time = %3.6f .\n" , time );
+	
 
+
+	}
 
 
 
 	//MPI_Waitall(&request, &status);
-	if (rank == size/2) {
+	
+
+	/*
+	// print the leftmost interval	
+	if (rank == 0) {
     	printf("I am processor %d and this is my result:\n", rank);
-		for ( k = 1; k < n-1; k++ ){
+		for ( k = 1; k < n-1; k++ ){ // skip the zeroth entry since it is junk
 			printf("%3.9f\n", u[k]);
 		}
 	}
+	*/
 
 	MPI_Finalize();
 	

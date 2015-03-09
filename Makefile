@@ -11,7 +11,7 @@ int_ring: int_ring.c
 	$(COMPILER) $(FLAGS) int_ring.c -o int_ring
 
 runring: int_ring
-	mpirun -np 7 ./int_ring 25 20000
+	mpirun -np 10 ./int_ring 20
 
 
 # problem 2
@@ -19,7 +19,7 @@ jacobi-mpi: jacobi-mpi.c
 	$(COMPILER) $(FLAGS) jacobi-mpi.c -o jacobi-mpi
 
 runjacobi: jacobi-mpi
-	mpirun -np 10 ./jacobi-mpi 10000 10
+	mpirun -np 2 ./jacobi-mpi 100000000 10
 
 # clean up
 clean:
